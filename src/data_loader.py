@@ -195,87 +195,64 @@ def load_chbmit_data(
     return X, y
 
 
-# ── 3. Kaggle iEEG (Dog_1) ───────────────────────────────────────────────────
+# ── 3. Bonn University EEG Dataset (via Kaggle) ──────────────────────────────
 def load_kaggle_data() -> tuple[np.ndarray, np.ndarray]:
     """
-    Load the Kaggle iEEG Dog_1 dataset (.mat files).
+    Load the Bonn University EEG Dataset (Andrzejak et al. 2001).
 
-    Preictal segments → 1 (Seizure/pre-seizure)
-    Interictal segments → 0 (Normal)
+    Source: kaggle.com/datasets/peimandaii/epilepsy-diagnosis-dataset
+    File:   data/raw/kaggle/EEG_Signal.csv
+
+    5 classes in long format (one row = one signal sample):
+        A, B  — healthy subjects (eyes open / closed)
+        C, D  — epileptic patients, seizure-free intervals
+        E     — seizure activity  ← positive class
+
+    Each subject ID corresponds to one 23.6-second EEG segment
+    (4097 samples at 173.6 Hz). We reshape into segment-level rows.
+
+    Binary labels:
+        E → 1 (Seizure)
+        A / B / C / D → 0 (Non-Seizure)
 
     Returns:
-        X: (n_segments, flattened_features) float64 array
+        X: (n_segments, 4097) float64 array
         y: (n_segments,) int array {0, 1}
     """
-    kaggle_dir = os.path.join(RAW_DIR, "kaggle")
-    dog1_dir = os.path.join(kaggle_dir, "Dog_1")
+    csv_path = os.path.join(RAW_DIR, "kaggle", "EEG_Signal.csv")
 
-    # Also check if files are directly in kaggle_dir
-    if not os.path.exists(dog1_dir):
-        dog1_dir = kaggle_dir
-
-    try:
-        from scipy.io import loadmat
-    except ImportError:
-        raise ImportError(
-            "scipy is required for Kaggle .mat files. "
-            "Install with: pip install scipy"
-        )
-
-    interictal_files = sorted(
-        glob.glob(os.path.join(dog1_dir, "**", "*interictal*segment*.mat"), recursive=True)
-    )
-    preictal_files = sorted(
-        glob.glob(os.path.join(dog1_dir, "**", "*preictal*segment*.mat"), recursive=True)
-    )
-
-    if not interictal_files and not preictal_files:
+    if not os.path.exists(csv_path):
         raise FileNotFoundError(
-            f"No .mat files found in {dog1_dir}. "
-            "Run `python src/download_data.py` first."
+            f"Bonn EEG dataset not found at {csv_path}. "
+            "Run: kaggle datasets download -d peimandaii/epilepsy-diagnosis-dataset "
+            "-p data/raw/kaggle/ --unzip"
         )
 
-    all_features = []
-    all_labels = []
+    logger.info("Loading Bonn University EEG dataset from %s ...", csv_path)
+    df = pd.read_csv(csv_path)
 
-    def _extract_segment(mat_path: str) -> np.ndarray:
-        """Extract and flatten EEG data from a .mat file."""
-        mat = loadmat(mat_path, simplify_cells=True)
-        # The data key varies; find it dynamically
-        for key in mat:
-            if not key.startswith("_"):
-                segment = mat[key]
-                if isinstance(segment, dict) and "data" in segment:
-                    data = np.array(segment["data"], dtype=np.float64)
-                    # Subsample to keep features manageable
-                    # Take mean across time for each channel
-                    return data.mean(axis=1)
-        raise ValueError(f"Could not find data in {mat_path}")
+    # Reshape: group by subject ID → each group is one EEG segment
+    segments = []
+    labels   = []
 
-    for mat_file in interictal_files:
-        try:
-            features = _extract_segment(mat_file)
-            all_features.append(features)
-            all_labels.append(0)
-        except Exception as exc:
-            logger.warning("Skipping %s: %s", mat_file, exc)
+    for person_id, group in df.groupby("id person", sort=False):
+        signal = group["Signal"].values.astype(np.float64)
+        label  = group["Labels"].iloc[0]
 
-    for mat_file in preictal_files:
-        try:
-            features = _extract_segment(mat_file)
-            all_features.append(features)
-            all_labels.append(1)
-        except Exception as exc:
-            logger.warning("Skipping %s: %s", mat_file, exc)
+        # Truncate / pad to exactly 4096 samples for uniform shape
+        if len(signal) >= 4096:
+            signal = signal[:4096]
+        else:
+            signal = np.pad(signal, (0, 4096 - len(signal)))
 
-    if not all_features:
-        raise ValueError("No valid segments could be loaded from Kaggle data.")
+        segments.append(signal)
+        labels.append(1 if label == "E" else 0)
 
-    X = np.array(all_features, dtype=np.float64)
-    y = np.array(all_labels, dtype=int)
+    X = np.array(segments, dtype=np.float64)
+    y = np.array(labels,   dtype=int)
 
     logger.info(
-        "Kaggle loaded: X=%s, y=%s | Preictal=%d, Interictal=%d",
+        "Bonn EEG loaded: X=%s, y=%s | Seizure(E)=%d, Non-Seizure=%d",
         X.shape, y.shape, y.sum(), (y == 0).sum(),
     )
     return X, y
@@ -285,5 +262,5 @@ def load_kaggle_data() -> tuple[np.ndarray, np.ndarray]:
 DATASET_LOADERS = {
     "UCI": load_uci_data,
     "CHB-MIT": load_chbmit_data,
-    "Kaggle": load_kaggle_data,
+    "Bonn-EEG": load_kaggle_data,
 }

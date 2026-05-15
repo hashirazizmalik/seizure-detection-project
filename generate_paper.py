@@ -172,12 +172,14 @@ def add_ruled_line(doc):
 # ─────────────────────────────────────────────────────────────────────────────
 df = pd.read_csv(CSV_PATH)
 
-uci     = df[df["dataset"] == "UCI"]
-chb     = df[df["dataset"] == "CHB-MIT"]
+uci  = df[df["dataset"] == "UCI"]
+chb  = df[df["dataset"] == "CHB-MIT"]
+bonn = df[df["dataset"] == "Bonn-EEG"]
 
 # Best configurations
-uci_best  = uci.sort_values("f1_score", ascending=False).iloc[0]
-chb_best  = chb.sort_values("pr_auc",   ascending=False).iloc[0]
+uci_best  = uci.sort_values("f1_score",  ascending=False).iloc[0]
+chb_best  = chb.sort_values("pr_auc",    ascending=False).iloc[0]
+bonn_best = bonn.sort_values("f1_score", ascending=False).iloc[0]
 
 # Pipeline comparison means
 pipe_means = df.groupby(["dataset", "pipeline"])[["accuracy", "f1_score", "pr_auc"]].mean()
@@ -251,20 +253,21 @@ r2 = abs_p.add_run(
     "Epileptic seizure detection from electroencephalography (EEG) signals is a critical "
     "clinical task hindered by extreme class imbalance and high-dimensional time-series data. "
     "This paper presents a systematic end-to-end machine learning study using Logistic Regression "
-    "as the baseline classifier across two publicly available EEG datasets: the UCI Epileptic "
-    "Seizure Recognition dataset and a subset of the CHB-MIT Scalp EEG dataset. "
+    "as the baseline classifier across three publicly available EEG datasets: the UCI Epileptic "
+    "Seizure Recognition dataset, a subset of the CHB-MIT Scalp EEG dataset, and the Bonn "
+    "University EEG dataset (Andrzejak et al. 2001). "
     "We evaluate two distinct preprocessing pipelines—Pipeline A (normalisation, bandpass "
     "filtering, and univariate feature selection) and Pipeline B (statistical feature extraction, "
     "standard scaling, and PCA)—across three regularisation strategies (L1/Lasso, L2/Ridge, "
     "and ElasticNet) and three class-imbalance handling techniques (SMOTE oversampling, "
-    "random undersampling, and class weighting), yielding 36 experiment configurations. "
+    "random undersampling, and class weighting), yielding 54 experiment configurations. "
     "Our results demonstrate that preprocessing order is the dominant performance factor: "
-    "Pipeline B achieves a mean F1-score of 0.895 on UCI versus 0.371 for Pipeline A on the "
-    "same data. Sparsity analysis confirms that L1 regularisation selects only 46 of 178 "
-    "features (74.2\\% sparsity) compared to L2's dense solution. On the severely imbalanced "
-    "CHB-MIT dataset (270:1 ratio), random undersampling achieves the highest PR-AUC of 0.625, "
-    "outperforming SMOTE (0.528) and class weighting (0.471). All code, models, and results "
-    "are fully reproducible."
+    "Pipeline B achieves a mean F1-score of 0.895 on UCI and 0.889 on Bonn-EEG versus 0.371 "
+    "and 0.632 respectively for Pipeline A. Sparsity analysis confirms that L1 regularisation "
+    "selects only 46 of 178 features (74.2\\% sparsity) compared to L2's dense solution. "
+    "On the severely imbalanced CHB-MIT dataset (270:1 ratio), random undersampling achieves "
+    "the highest PR-AUC of 0.625, outperforming SMOTE (0.528) and class weighting (0.471). "
+    "All code, models, and results are fully reproducible."
 )
 set_font(r2, size=10)
 
@@ -311,8 +314,8 @@ add_paragraph(doc,
 add_heading(doc, "Dataset Description", "II.")
 add_paragraph(doc,
     "Three datasets were selected to cover different EEG recording conditions, imbalance "
-    "levels, and feature characteristics. The Kaggle iEEG (Mayo Clinic) dataset was excluded "
-    "from experiments due to API authentication requirements but is documented below.")
+    "levels, and feature characteristics. All three datasets are publicly available "
+    "and cover different recording conditions, imbalance ratios, and feature types.")
 
 add_subheading(doc, "A.  UCI Epileptic Seizure Recognition Dataset")
 add_paragraph(doc,
@@ -362,15 +365,33 @@ add_ieee_table(doc,
     col_widths=[2.8, 3.5],
 )
 
-add_subheading(doc, "C.  Kaggle iEEG (Mayo Clinic) Dataset")
+add_subheading(doc, "C.  Bonn University EEG Dataset")
 add_paragraph(doc,
-    "The Kaggle Seizure Detection competition dataset [5] contains intracranial EEG (iEEG) "
-    "recordings from dogs and humans, provided as MATLAB .mat files. Preictal segments "
-    "(within one hour of seizure onset) are labelled positive; interictal segments (at least "
-    "one week from any seizure) are labelled negative. Due to Kaggle API authentication "
-    "requirements, this dataset could not be downloaded automatically and is excluded from "
-    "experimental evaluation. Its inclusion in future work is recommended for cross-modal "
-    "validation (scalp EEG vs. iEEG).")
+    "The Bonn University EEG dataset (Andrzejak et al. 2001) [5] is a widely-used benchmark "
+    "for epileptic seizure detection. It contains 500 single-channel EEG segments, each 23.6 "
+    "seconds long recorded at 173.6 Hz (4096 samples per segment), collected from five groups: "
+    "Set A (healthy, eyes open), Set B (healthy, eyes closed), Set C (epileptic, seizure-free, "
+    "opposite hemisphere), Set D (epileptic, seizure-free, epileptogenic zone), and Set E "
+    "(ictal — seizure activity). For binary classification, Set E is labelled positive (seizure) "
+    "and Sets A–D are labelled negative (non-seizure), yielding a 4:1 class imbalance ratio. "
+    "The dataset is available via Kaggle (peimandaii/epilepsy-diagnosis-dataset) and represents "
+    "a different recording context from UCI (multi-class preprocessed) and CHB-MIT (long-term "
+    "multichannel paediatric EEG).")
+
+add_ieee_table(doc,
+    ["Property", "Value"],
+    [
+        ["Total segments",          "500"],
+        ["Feature dimensionality",  "4,096  (23.6s × 173.6 Hz single-channel EEG)"],
+        ["Seizure segments (Set E)", "100  (20.0%)"],
+        ["Non-seizure segments (Sets A–D)", "400  (80.0%)"],
+        ["Class imbalance ratio",   "4 : 1"],
+        ["Feature type",            "Raw single-channel EEG time-series"],
+        ["Sampling frequency",      "173.6 Hz"],
+    ],
+    "TABLE III.  Bonn University EEG Dataset Characteristics",
+    col_widths=[2.8, 3.5],
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # III. PREPROCESSING PIPELINES
@@ -496,7 +517,7 @@ add_paragraph(doc,
 # ─────────────────────────────────────────────────────────────────────────────
 add_heading(doc, "Experimental Results", "VI.")
 add_paragraph(doc,
-    "All 36 experiment configurations (2 datasets × 2 pipelines × 3 penalties "
+    "All 54 experiment configurations (3 datasets × 2 pipelines × 3 penalties "
     "× 3 imbalance strategies) were executed. Three primary metrics are reported: "
     "Accuracy, F1-score (the harmonic mean of precision and recall, prioritised due to "
     "class imbalance), and PR-AUC (area under the Precision-Recall curve, particularly "
@@ -543,6 +564,25 @@ add_ieee_table(doc,
     col_widths=[1.1, 0.75, 1.35, 0.9, 0.9, 0.9],
 )
 
+add_subheading(doc, "C.  Bonn University EEG Dataset — Full Results")
+
+bonn_rows = []
+for _, row in bonn.iterrows():
+    bonn_rows.append([
+        f"{row['pipeline']}",
+        row["penalty"].upper(),
+        row["imbalance_strategy"],
+        f"{row['accuracy']:.4f}",
+        f"{row['f1_score']:.4f}",
+        f"{row['pr_auc']:.4f}",
+    ])
+add_ieee_table(doc,
+    ["Pipeline", "Penalty", "Imbalance Strategy", "Accuracy", "F1-Score", "PR-AUC"],
+    bonn_rows,
+    "TABLE VI.  Full Bonn-EEG Experimental Results (18 configurations)",
+    col_widths=[1.1, 0.75, 1.35, 0.9, 0.9, 0.9],
+)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # VII. COMPARATIVE ANALYSIS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -562,29 +602,32 @@ add_paragraph(doc,
 add_figure(doc,
     os.path.join(RESULTS, "analysis_q1_pipeline_comparison.png"),
     "Fig. 1.  Q1: Pipeline A vs. Pipeline B — mean F1-score and PR-AUC per dataset. "
-    "Pipeline B dramatically outperforms Pipeline A on UCI; both fail similarly on CHB-MIT "
-    "Pipeline A due to the 270:1 class ratio.",
+    "Pipeline B dramatically outperforms Pipeline A on all three datasets. "
+    "CHB-MIT Pipeline A fails (F1=0) due to the 270:1 class ratio.",
 )
 
 add_subheading(doc, "Q2.  Which Regularisation Generalises Best?")
 
 pen_table_rows = []
 for penalty in ["l1", "l2", "elasticnet"]:
-    sub   = df[df["penalty"] == penalty]
+    sub      = df[df["penalty"] == penalty]
     uci_f1   = sub[sub["dataset"] == "UCI"]["f1_score"].mean()
     uci_auc  = sub[sub["dataset"] == "UCI"]["pr_auc"].mean()
     chb_f1   = sub[sub["dataset"] == "CHB-MIT"]["f1_score"].mean()
     chb_auc  = sub[sub["dataset"] == "CHB-MIT"]["pr_auc"].mean()
+    bon_f1   = sub[sub["dataset"] == "Bonn-EEG"]["f1_score"].mean()
+    bon_auc  = sub[sub["dataset"] == "Bonn-EEG"]["pr_auc"].mean()
     pen_table_rows.append([
         penalty.upper(),
         f"{uci_f1:.4f}", f"{uci_auc:.4f}",
         f"{chb_f1:.4f}", f"{chb_auc:.4f}",
+        f"{bon_f1:.4f}", f"{bon_auc:.4f}",
     ])
 add_ieee_table(doc,
-    ["Penalty", "UCI F1", "UCI PR-AUC", "CHB-MIT F1", "CHB-MIT PR-AUC"],
+    ["Penalty", "UCI F1", "UCI AUC", "CHB-MIT F1", "CHB-MIT AUC", "Bonn F1", "Bonn AUC"],
     pen_table_rows,
-    "TABLE VI.  Regularisation Comparison (means across all pipelines and imbalance strategies)",
-    col_widths=[0.85, 1.2, 1.2, 1.2, 1.2],
+    "TABLE VII.  Regularisation Comparison (means across all pipelines and imbalance strategies)",
+    col_widths=[0.85, 0.85, 0.85, 0.95, 0.95, 0.85, 0.85],
 )
 add_paragraph(doc,
     "L2 achieves the highest mean F1 on UCI (0.634 vs 0.632 L1, 0.633 ElasticNet) and is "
@@ -786,17 +829,16 @@ add_paragraph(doc,
 add_heading(doc, "Conclusion", "XI.")
 add_paragraph(doc,
     "This paper presented a comprehensive end-to-end study of epileptic seizure detection "
-    "using Logistic Regression across two EEG datasets, two preprocessing pipelines, three "
-    "regularisation strategies, and three class-imbalance handling techniques. The key "
-    "finding is that the choice of preprocessing pipeline is the dominant performance factor "
-    "for linear classifiers: statistical feature extraction (Pipeline B) outperforms "
-    "direct signal processing (Pipeline A) by 141\\% in F1-score on the UCI dataset. "
-    "Regularisation type and imbalance handling strategy have secondary but measurable "
-    "effects, particularly under extreme imbalance. L1 regularisation provides built-in "
-    "feature selection (74.2\\% sparsity), and random undersampling outperforms SMOTE in "
-    "PR-AUC under a 270:1 class imbalance ratio. Future work should extend this study to "
-    "non-linear models (Support Vector Machines, Random Forests, deep convolutional "
-    "networks) and include the Kaggle iEEG dataset for intracranial EEG validation.")
+    "using Logistic Regression across three EEG datasets (UCI, CHB-MIT, Bonn University), "
+    "two preprocessing pipelines, three regularisation strategies, and three class-imbalance "
+    "handling techniques — 54 experiments in total. The key finding is that the choice of "
+    "preprocessing pipeline is the dominant performance factor: Pipeline B (statistical "
+    "feature extraction + PCA) achieves F1=0.899 on UCI and F1=0.889 on Bonn-EEG, versus "
+    "0.371 and 0.632 respectively for Pipeline A. Regularisation type has a secondary effect; "
+    "L1 provides built-in feature selection (74.2\\% sparsity). On the extreme 270:1 CHB-MIT "
+    "imbalance, random undersampling achieves the best PR-AUC of 0.625. Future work should "
+    "extend to non-linear models (SVM, Random Forests, deep CNN/LSTM) and include the "
+    "Kaggle iEEG dataset for intracranial EEG validation.")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # REFERENCES
@@ -819,8 +861,10 @@ refs = [
     "a New Research Resource for Complex Physiologic Signals,\" Circulation, vol. 101, "
     "no. 23, pp. e215–e220, 2000. CHB-MIT Scalp EEG Database v1.0.0.",
 
-    "[5] Kaggle / UPenn and Mayo Clinic, \"Seizure Detection,\" Kaggle Competition, 2014. "
-    "[Online]. Available: https://www.kaggle.com/c/seizure-detection",
+    "[5] R. G. Andrzejak, K. Lehnertz, F. Mormann, C. Rieke, P. David, and C. E. Elger, "
+    "\"Indications of nonlinear deterministic and finite-dimensional structures in time series "
+    "of brain electrical activity,\" Physical Review E, vol. 64, no. 6, p. 061907, 2001. "
+    "[Dataset] Available: kaggle.com/datasets/peimandaii/epilepsy-diagnosis-dataset",
 
     "[6] N. V. Chawla, K. W. Bowyer, L. O. Hall, and W. P. Kegelmeyer, \"SMOTE: Synthetic "
     "Minority Over-sampling Technique,\" J. Artif. Intell. Res., vol. 16, pp. 321–357, 2002.",
